@@ -18,6 +18,12 @@ if(isset($_POST["username"]) && isset($_POST["email"]) && isset($_POST["password
         exit();
     }
 
+    // Validate password strength (minimum 8 characters)
+    if (strlen($newPassword) < 8) {
+        header("Location: signup.php?error=weak_password");
+        exit();
+    }
+
     // Determine initial role based on email domain
     if (preg_match('/.+@admin\.it$/', $email)) {
         $ruolo = 'admin';

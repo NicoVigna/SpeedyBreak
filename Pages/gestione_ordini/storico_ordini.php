@@ -3,6 +3,16 @@ session_start();
 require_once "gestione-ordine.php";
 
 /* ---------------------------------------------------------
+   ACCESSO CONSENTITO SOLO AD ADMIN E BARISTA
+--------------------------------------------------------- */
+if (!isset($_SESSION["ruolo"]) ||
+   ($_SESSION["ruolo"] !== 'admin' && $_SESSION["ruolo"] !== 'barista'))
+{
+    header("Location: ../../index.php");
+    exit();
+}
+
+/* ---------------------------------------------------------
    CONNESSIONE AL DATABASE
 --------------------------------------------------------- */
 $db = new Database("localhost", "my_saqlain", "root", "");

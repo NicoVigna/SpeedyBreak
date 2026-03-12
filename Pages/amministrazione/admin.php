@@ -22,70 +22,129 @@ if (!in_array($tabella, $allowed)) {
 
 $message = "";
 
+// --- MAPPING TABELLA → COLONNA PRIMARIA (previene SQL injection su $id_col) ---
+$pk_map = [
+    'SB_categoria' => 'id_categoria',
+    'SB_prodotto'  => 'id_prodotto',
+    'SB_utente'    => 'id_utente',
+];
+
 // --- 1. RECUPERO CATEGORIE ---
 $options_cat = [];
 $res_cat = $conn->query("SELECT id_categoria, descrizione FROM SB_categoria ORDER BY descrizione ASC");
 if ($res_cat) while ($c = $res_cat->fetch_assoc()) $options_cat[] = $c;
 
 // --- 2. LOGICA DELETE ---
-if (isset($_GET['delete_id']) && isset($_GET['id_col'])) {
-    $id_col = $_GET['id_col'];
+if (isset($_GET['delete_id'])) {
+    $id_col = $pk_map[$tabella] ?? null;
     $id_val = intval($_GET['delete_id']);
-    if ($conn->query("DELETE FROM $tabella WHERE $id_col = $id_val")) {
-        $message = "<div class='alert alert-success'>Eliminato con successo!</div>";
+    if ($id_col && $id_val > 0) {
+        $stmt_del = $conn->prepare("DELETE FROM $tabella WHERE $id_col = ?");
+        $stmt_del->bind_param("i", $id_val);
+        if ($stmt_del->execute()) {
+            $message = "<div class='alert alert-success'>Eliminato con successo!</div>";
+        } else {
+            $message = "<div class='alert alert-error'>Errore durante l'eliminazione.</div>";
+        }
+        $stmt_del->close();
     } else {
-        $message = "<div class='alert alert-error'>Errore: " . $conn->error . "</div>";
+        $message = "<div class='alert alert-error'>Operazione non valida.</div>";
     }
 }
 
 // --- 3. LOGICA INSERT / UPDATE ---
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $azione = $_POST['azione'] ?? '';
-    $sql = null;
 
     if ($tabella == 'SB_categoria') {
-        $desc = $conn->real_escape_string($_POST['descrizione']);
+        $desc = trim($_POST['descrizione'] ?? '');
 
         if ($azione == 'add') {
-            $check = $conn->query("SELECT id_categoria FROM SB_categoria WHERE descrizione = '$desc' LIMIT 1");
-            if ($check && $check->num_rows > 0) {
-                $message = "<div class='alert alert-warning'>La categoria \"" . htmlspecialchars($_POST['descrizione']) . "\" esiste già!</div>";
-                $sql = null;
+            $check = $conn->prepare("SELECT id_categoria FROM SB_categoria WHERE descrizione = ? LIMIT 1");
+            $check->bind_param("s", $desc);
+            $check->execute();
+            $check->store_result();
+            if ($check->num_rows > 0) {
+                $message = "<div class='alert alert-warning'>La categoria \"" . htmlspecialchars($desc) . "\" esiste già!</div>";
             } else {
-                $sql = "INSERT INTO SB_categoria (descrizione) VALUES ('$desc')";
+                $stmt = $conn->prepare("INSERT INTO SB_categoria (descrizione) VALUES (?)");
+                $stmt->bind_param("s", $desc);
+                if ($stmt->execute()) {
+                    $message = "<div class='alert alert-success'>Operazione riuscita!</div>";
+                } else {
+                    $message = "<div class='alert alert-error'>Errore durante l'operazione.</div>";
+                }
+                $stmt->close();
             }
+            $check->close();
         } else {
-            $sql = "UPDATE SB_categoria SET descrizione='$desc' WHERE id_categoria=" . intval($_POST['id']);
+            $id = intval($_POST['id'] ?? 0);
+            $stmt = $conn->prepare("UPDATE SB_categoria SET descrizione = ? WHERE id_categoria = ?");
+            $stmt->bind_param("si", $desc, $id);
+            if ($stmt->execute()) {
+                $message = "<div class='alert alert-success'>Operazione riuscita!</div>";
+            } else {
+                $message = "<div class='alert alert-error'>Errore durante l'operazione.</div>";
+            }
+            $stmt->close();
         }
 
     } elseif ($tabella == 'SB_prodotto') {
-        $nome      = $conn->real_escape_string($_POST['nome']);
-        $desc_prod = $conn->real_escape_string($_POST['descrizione']);
-        $prezzo    = floatval($_POST['prezzo']);
-        $cat       = intval($_POST['id_categoria']);
-        $giacenza  = intval($_POST['giacenza']);
-        $sql = ($azione == 'add')
-            ? "INSERT INTO SB_prodotto (nome, descrizione, prezzo, id_categoria, giacenza) VALUES ('$nome', '$desc_prod', $prezzo, $cat, $giacenza)"
-            : "UPDATE SB_prodotto SET nome='$nome', descrizione='$desc_prod', prezzo=$prezzo, id_categoria=$cat, giacenza=$giacenza WHERE id_prodotto=" . intval($_POST['id']);
+        $nome      = trim($_POST['nome'] ?? '');
+        $desc_prod = trim($_POST['descrizione'] ?? '');
+        $prezzo    = floatval($_POST['prezzo'] ?? 0);
+        $cat       = intval($_POST['id_categoria'] ?? 0);
+        $giacenza  = intval($_POST['giacenza'] ?? 0);
+
+        if ($azione == 'add') {
+            $stmt = $conn->prepare("INSERT INTO SB_prodotto (nome, descrizione, prezzo, id_categoria, giacenza) VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param("ssdii", $nome, $desc_prod, $prezzo, $cat, $giacenza);
+        } else {
+            $id = intval($_POST['id'] ?? 0);
+            $stmt = $conn->prepare("UPDATE SB_prodotto SET nome = ?, descrizione = ?, prezzo = ?, id_categoria = ?, giacenza = ? WHERE id_prodotto = ?");
+            $stmt->bind_param("ssdiii", $nome, $desc_prod, $prezzo, $cat, $giacenza, $id);
+        }
+        if ($stmt->execute()) {
+            $message = "<div class='alert alert-success'>Operazione riuscita!</div>";
+        } else {
+            $message = "<div class='alert alert-error'>Errore durante l'operazione.</div>";
+        }
+        $stmt->close();
 
     } elseif ($tabella == 'SB_utente') {
-        $username = $conn->real_escape_string($_POST['username']);
-        $email    = $conn->real_escape_string($_POST['email']);
-        $ruolo    = $conn->real_escape_string($_POST['ruolo']);
-        if ($azione == 'add') {
-            $password_plain = $_POST['password'] ?? '';
-            $password_hash  = password_hash($password_plain, PASSWORD_DEFAULT);
-            $password_hash_escaped = $conn->real_escape_string($password_hash);
-            $sql = "INSERT INTO SB_utente (username, email, ruolo, password_hash) VALUES ('$username', '$email', '$ruolo', '$password_hash_escaped')";
-        } else {
-            $sql = "UPDATE SB_utente SET username='$username', email='$email', ruolo='$ruolo' WHERE id_utente=" . intval($_POST['id']);
-        }
-    }
+        $username = trim($_POST['username'] ?? '');
+        $email    = trim($_POST['email'] ?? '');
+        $ruolo    = $_POST['ruolo'] ?? '';
 
-    if ($sql && $conn->query($sql)) {
-        $message = "<div class='alert alert-success'>Operazione riuscita!</div>";
-    } elseif ($sql) {
-        $message = "<div class='alert alert-error'>Errore: " . $conn->error . "</div>";
+        $allowed_ruoli = ['customer', 'barista', 'admin'];
+        if (!in_array($ruolo, $allowed_ruoli)) {
+            $message = "<div class='alert alert-error'>Ruolo non valido.</div>";
+        } elseif ($azione == 'add') {
+            $password_plain = $_POST['password'] ?? '';
+            if (strlen($password_plain) < 8) {
+                $message = "<div class='alert alert-error'>La password deve contenere almeno 8 caratteri.</div>";
+            } else {
+                $password_hash = password_hash($password_plain, PASSWORD_DEFAULT);
+                $stmt = $conn->prepare("INSERT INTO SB_utente (username, email, ruolo, password_hash) VALUES (?, ?, ?, ?)");
+                $stmt->bind_param("ssss", $username, $email, $ruolo, $password_hash);
+                if ($stmt->execute()) {
+                    $message = "<div class='alert alert-success'>Operazione riuscita!</div>";
+                } else {
+                    $message = "<div class='alert alert-error'>Errore durante l'operazione.</div>";
+                }
+                $stmt->close();
+            }
+        } else {
+            $id = intval($_POST['id'] ?? 0);
+            $stmt = $conn->prepare("UPDATE SB_utente SET username = ?, email = ?, ruolo = ? WHERE id_utente = ?");
+            $stmt->bind_param("sssi", $username, $email, $ruolo, $id);
+            if ($stmt->execute()) {
+                $message = "<div class='alert alert-success'>Operazione riuscita!</div>";
+            } else {
+                $message = "<div class='alert alert-error'>Errore durante l'operazione.</div>";
+            }
+            $stmt->close();
+        }
     }
 }
 
@@ -102,7 +161,7 @@ if ($tabella == 'SB_prodotto') {
 }
 
 $query_tabella = $conn->query($query_sql);
-if (!$query_tabella) die("Errore query: " . $conn->error . "<br>Query: " . $query_sql);
+if (!$query_tabella) die("Errore durante il recupero dei dati.");
 
 $campi = $query_tabella->fetch_fields();
 
@@ -322,7 +381,7 @@ if ($res_count) {
                                                 $extra = "data-num-prodotti=\"$num_prod\"";
                                             }
                                         ?>
-                                        <a href="?tabella=<?= $tabella ?>&delete_id=<?= $row[$pk] ?>&id_col=<?= $pk ?>"
+                                        <a href="?tabella=<?= $tabella ?>&delete_id=<?= $row[$pk] ?>"
                                             class="btn btn-danger btn-elimina"
                                             style="padding: 6px;"
                                             <?= $extra ?>

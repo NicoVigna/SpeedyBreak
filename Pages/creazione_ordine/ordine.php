@@ -22,36 +22,60 @@
 
     $data = json_decode(file_get_contents("php://input"),true);
 
-    $id_utente = $_SESSION['user_id'];
-$metodo = isset($data['metodo']) ? $conn->real_escape_string($data['metodo']) : "Contanti";
-$nota = isset($data['nota']) ? $conn->real_escape_string($data['nota']) : "";
-$data_ritiro = date("Y-m-d H:i:s", strtotime("+20 minutes"));
+    $id_utente = intval($_SESSION['user_id']);
+    if ($id_utente <= 0) {
+        http_response_code(403);
+        echo "Errore: Sessione non valida.";
+        exit;
+    }
 
-$items = isset($data['items']) ? $data['items'] : $data;
+    $allowed_metodi = ['Contanti', 'Carta', 'Bancomat'];
+    $metodo_raw = isset($data['metodo']) ? $data['metodo'] : "Contanti";
+    $metodo = in_array($metodo_raw, $allowed_metodi) ? $metodo_raw : "Contanti";
 
-$conn->query("
-    INSERT INTO SB_ordine (stato,metodo,id_utente,nota,data_ritiro)
-    VALUES ('In attesa','$metodo',$id_utente,'$nota','$data_ritiro')
+    $nota = isset($data['nota']) ? substr(trim($data['nota']), 0, 500) : "";
+    $data_ritiro = date("Y-m-d H:i:s", strtotime("+20 minutes"));
+
+    $items = isset($data['items']) ? $data['items'] : $data;
+
+    $stmt_ordine = $conn->prepare("
+        INSERT INTO SB_ordine (stato, metodo, id_utente, nota, data_ritiro)
+        VALUES ('In attesa', ?, ?, ?, ?)
+    ");
+    $stmt_ordine->bind_param("siss", $metodo, $id_utente, $nota, $data_ritiro);
+    $stmt_ordine->execute();
+    $id_ordine = $conn->insert_id;
+    $stmt_ordine->close();
+
+    $stmt_dettaglio = $conn->prepare("
+        SELECT id_prodotto FROM SB_prodotto WHERE nome = ?
+    ");
+    $stmt_insert = $conn->prepare("
+        INSERT INTO SB_dettaglio_ordine (id_ordine, id_prodotto, quantita)
+        VALUES (?, ?, ?)
     ");
 
-    $id_ordine = $conn->insert_id;
+    foreach ($items as $item) {
+        $nome = isset($item['name']) ? trim($item['name']) : '';
+        $quantita = isset($item['quantity']) ? intval($item['quantity']) : 0;
 
+        if ($quantita <= 0 || $quantita > 30 || $nome === '') continue;
 
-foreach ($items as $item) {
-
-    $nome = $conn->real_escape_string($item['name']);
-        $quantita = $item['quantity'];
-
-        $res = $conn->query("SELECT id_prodotto FROM SB_prodotto WHERE nome='$nome'");
+        $stmt_dettaglio->bind_param("s", $nome);
+        $stmt_dettaglio->execute();
+        $res = $stmt_dettaglio->get_result();
         $row = $res->fetch_assoc();
+
+        if (!$row) continue;
 
         $id_prodotto = $row['id_prodotto'];
 
-        $conn->query("
-        INSERT INTO SB_dettaglio_ordine (id_ordine,id_prodotto,quantita)
-        VALUES ($id_ordine,$id_prodotto,$quantita)
-        ");
+        $stmt_insert->bind_param("iii", $id_ordine, $id_prodotto, $quantita);
+        $stmt_insert->execute();
     }
+
+    $stmt_dettaglio->close();
+    $stmt_insert->close();
 
     echo "Ordine salvato";
 
