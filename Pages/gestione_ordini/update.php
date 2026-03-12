@@ -1,4 +1,12 @@
 <?php
+session_start();
+
+if (!isset($_SESSION["ruolo"]) ||
+   ($_SESSION["ruolo"] !== 'admin' && $_SESSION["ruolo"] !== 'barista'))
+{
+    header("Location: ../../index.php");
+    exit();
+}
 
 require_once "gestione-ordine.php";
 

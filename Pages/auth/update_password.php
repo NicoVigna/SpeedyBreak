@@ -71,6 +71,8 @@ if (!isset($_SESSION["user_id"])) {
                       La vecchia password è errata.
                   <?php elseif($_GET['error'] == 'mismatch'): ?>
                       Le nuove password non corrispondono.
+                  <?php elseif($_GET['error'] == 'weak_password'): ?>
+                      La nuova password deve contenere almeno 8 caratteri.
                   <?php else: ?>
                       Si è verificato un errore, riprova.
                   <?php endif; ?>

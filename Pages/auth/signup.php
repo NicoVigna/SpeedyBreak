@@ -52,6 +52,8 @@
                       Errore del database.
                   <?php elseif($_GET['error'] == 'invalid_email'): ?>
                       Dominio email non valido. Utilizzare @aldini.istruzioneer.it, @avbo.it, @admin.it o @bar.it.
+                  <?php elseif($_GET['error'] == 'weak_password'): ?>
+                      La password deve contenere almeno 8 caratteri.
                   <?php endif; ?>
                   </span>
               </div>

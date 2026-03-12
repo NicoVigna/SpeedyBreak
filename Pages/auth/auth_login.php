@@ -13,7 +13,8 @@ if(isset($_POST["email"]) && isset($_POST["password"])){
         $user = $stmt->fetch();
 
         if ($user && password_verify($password, $user['password_hash'])) {
-            // Login Successful
+            // Login Successful — regenerate session ID to prevent session fixation
+            session_regenerate_id(true);
             $_SESSION["user_id"] = $user['id_utente'];
             $_SESSION["username"] = $user['username'];
             $_SESSION["email"] = $user['email'];

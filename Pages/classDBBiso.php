@@ -43,8 +43,9 @@ class classDBBiso
     public function save_credentials($username, $password)
     {
         // controllo esistenza utente
-        $exist = $this->conn->query("SELECT username FROM sessione_utente WHERE username = '$username'");
-        if ($exist->rowCount() > 0) return true; // username esistente => non creato
+        $stmt = $this->conn->prepare("SELECT username FROM sessione_utente WHERE username = :username");
+        $stmt->execute([':username' => $username]);
+        if ($stmt->rowCount() > 0) return true; // username esistente => non creato
 
         $sql = "INSERT INTO sessione_utente (username, password_hash) VALUES (:username, :password)"; // query per db
         $cmd = $this->conn->prepare($sql);
