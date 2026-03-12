@@ -19,14 +19,16 @@
             </a>
     
             <ul class="nav-links">
-                <li><a class="nav-item active" href="index.php">Home</a></li>
-                <li><a class="nav-item" href="Pages/creazione_ordine/index_order.php">Ordina</a></li>
-                <?php if(isset($_SESSION["ruolo"]) && ($_SESSION["ruolo"] === 'admin' || $_SESSION["ruolo"] === 'barista')): ?>
-                    <li><a class="nav-item" href="Pages/gestione_ordini/manage.php">Gestione Ordini</a></li>
-                    <li><a class="nav-item" href="Pages/gestione_ordini/storico_ordini.php">Storico</a></li>
-                <?php endif; ?>
-                <?php if(isset($_SESSION["ruolo"]) && $_SESSION["ruolo"] === 'admin'): ?>
-                    <li><a class="nav-item" href="Pages/amministrazione/admin.php">Admin</a></li>
+                <?php if(isset($_SESSION["user_id"])): ?>
+                    <li><a class="nav-item active" href="index.php">Home</a></li>
+                    <li><a class="nav-item" href="Pages/creazione_ordine/index_order.php">Ordina</a></li>
+                    <?php if(isset($_SESSION["ruolo"]) && ($_SESSION["ruolo"] === 'admin' || $_SESSION["ruolo"] === 'barista')): ?>
+                        <li><a class="nav-item" href="Pages/gestione_ordini/manage.php">Gestione Ordini</a></li>
+                        <li><a class="nav-item" href="Pages/gestione_ordini/storico_ordini.php">Storico</a></li>
+                    <?php endif; ?>
+                    <?php if(isset($_SESSION["ruolo"]) && $_SESSION["ruolo"] === 'admin'): ?>
+                        <li><a class="nav-item" href="Pages/amministrazione/admin.php">Admin</a></li>
+                    <?php endif; ?>
                 <?php endif; ?>
                 <li>
                     <?php if(isset($_SESSION["user_id"])): ?>
@@ -37,12 +39,12 @@
                             </svg>
                         </a>
                     <?php else: ?>
-                        <a class="nav-icon-btn" href="Pages/auth/login.php" title="Login">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                                <polyline points="10 17 15 12 10 7"></polyline>
-                                <line x1="15" y1="12" x2="3" y2="12"></line>
+                        <a href="Pages/auth/login.php" title="Accedi o Registrati" style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(249, 115, 22, 0.1); color: var(--color-primary); border-radius: 99px; font-weight: 600; font-size: 14px; text-decoration: none; transition: background 0.2s;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
                             </svg>
+                            <span>Accedi / Registrati</span>
                         </a>
                     <?php endif; ?>
                 </li>
@@ -59,13 +61,70 @@
         
         <div style="position: relative; z-index: 1; text-align: center; max-width: 800px; margin: 0 auto;">
             <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; background: white; border-radius: 99px; box-shadow: var(--shadow-sm); margin-bottom: 24px; font-weight: 500; color: var(--color-primary); font-size: var(--font-size-sm); border: 1px solid var(--color-border);" class="animate-fade-in">
-                <span style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span>
+                <span class="blinking-led"></span>
+                <style>
+                    .blinking-led {
+                        display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%;
+                        animation: blink 1.5s infinite ease-in-out;
+                    }
+                    @keyframes blink {
+                        0%, 100% { opacity: 1; box-shadow: 0 0 8px #10b981; }
+                        50% { opacity: 0.3; box-shadow: none; }
+                    }
+                </style>
                 Il servizio bar digitale per la tua scuola
             </div>
-            <h1 class="animate-fade-in" style="font-size: clamp(2.5rem, 5vw, 4rem); letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 24px; animation-delay: 0.1s; opacity: 0; animation-fill-mode: forwards;">
+            <h1 class="animate-fade-in" style="font-size: clamp(2.5rem, 5vw, 4rem); letter-spacing: -0.02em; line-height: 1.2; margin-bottom: 24px; animation-delay: 0.1s; opacity: 0; animation-fill-mode: forwards; height: 2.8em;">
                 La Pausa Perfetta,<br>
-                <span style="color: var(--color-primary); background: linear-gradient(90deg, var(--color-primary), #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Senza Attese.</span> ☕
+                <span id="dynamic-text" style="color: var(--color-primary); background: linear-gradient(90deg, var(--color-primary), #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Senza Attese.</span><span class="typing-cursor" style="color: var(--color-primary); margin-left: 2px;">|</span>
             </h1>
+            
+            <style>
+                .typing-cursor {
+                    font-weight: 300;
+                    animation: blink-cursor 1s step-end infinite;
+                }
+                @keyframes blink-cursor {
+                    from, to { opacity: 1; }
+                    50% { opacity: 0; }
+                }
+            </style>
+            
+            <script>
+                const words = ["Senza Attese.", "Senza Coda.", "Con Gusto.", "Per Te."];
+                let i = 0;
+                let charIndex = words[0].length;
+                let isDeleting = true;
+                const el = document.getElementById("dynamic-text");
+                
+                function typeEffect() {
+                    const currentWord = words[i];
+                    
+                    if (isDeleting) {
+                        el.textContent = currentWord.substring(0, charIndex - 1);
+                        charIndex--;
+                    } else {
+                        el.textContent = currentWord.substring(0, charIndex + 1);
+                        charIndex++;
+                    }
+                    
+                    let typeSpeed = isDeleting ? 40 : 100;
+                    
+                    if (!isDeleting && charIndex === currentWord.length) {
+                        typeSpeed = 2500; // Pause at end of word
+                        isDeleting = true;
+                    } else if (isDeleting && charIndex === 0) {
+                        isDeleting = false;
+                        i = (i + 1) % words.length;
+                        typeSpeed = 400; // Pause before typing new word
+                    }
+                    
+                    setTimeout(typeEffect, typeSpeed);
+                }
+                
+                // Start by deleting the first word after a brief delay
+                setTimeout(typeEffect, 2000);
+            </script>
             <p class="animate-fade-in" style="font-size: var(--font-size-xl); margin: 0 auto; color: var(--color-text-muted); line-height: 1.6; animation-delay: 0.2s; opacity: 0; animation-fill-mode: forwards;">
                 Il modo più veloce ed efficiente per ordinare le tue colazioni e spuntini direttamente al bar della scuola.
             </p>
